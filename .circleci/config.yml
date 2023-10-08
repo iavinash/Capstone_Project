@@ -3,7 +3,7 @@
 # Check https://circleci.com/docs/2.0/language-python/ for more details
 version: 2.1
 jobs:
-  build_app:
+  Build_App:
     docker:
       - image: cimg/python:3.10.12
     working_directory: ~/repo
@@ -41,7 +41,7 @@ jobs:
             source ~/.capstone/bin/activate
             make test
 
-  build_and_push_docker_image_to_ecr:
+  Build_Upload_Docker_Image_To_ECR:
     docker:
       - image: cimg/python:3.10.12
     working_directory: ~/repo
@@ -76,23 +76,23 @@ jobs:
       - run:
           name: Authenticate with ECR
           command: |
-            aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 779081108163.dkr.ecr.us-east-2.amazonaws.com
+            aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster
 
       # Tag the Docker image for ECR
       - run:
           name: Tag Docker Image for ECR
           command: |
-            docker tag avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
-            docker tag avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:latest
+            docker tag avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
+            docker tag avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash_capstone:latest
 
       # Push the Docker image to ECR
       - run:
           name: Push Docker Image to ECR
           command: |
-            docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
-            docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:latest
+            docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
+            docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash_capstone:latest
 
-  deploy_to_eks_cluster:
+  Deploy_To_EKS_Cluster:
     docker:
       - image: cimg/python:3.10.12
     working_directory: ~/repo
@@ -139,15 +139,15 @@ jobs:
           name: Deploy Latest App Image
           command: |
             sleep 5
-            kubectl set image -n kush-app-ns deployments/avi-capstone-deployment avicapstone-app=779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
+            kubectl set image -n avinash_capstone-ns deployments/avi-capstone-deployment avinash_capstone-app=779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
 
 workflows:
   default:
     jobs:
-      - build_app
-      - build_and_push_docker_image_to_ecr:
+      - Build_App
+      - Build_Upload_Docker_Image_To_ECR:
           requires:
-            - build_app
-      - deploy_to_eks_cluster:
+            - Build_App
+      - Deploy_To_EKS_Cluster:
           requires:
-            - build_and_push_docker_image_to_ecr
+            - Build_Upload_Docker_Image_To_ECR
