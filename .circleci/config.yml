@@ -149,7 +149,7 @@ jobs:
           name: Deploy Latest App Image
           command: |
             sleep 5
-            kubectl set image -n avinash-capstone-ns deployments/avi-capstone-deployment avinash-capstone-app=779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7}
+            kubectl set image -n avinash-capstone-ns deployments/avinash-capstone-deployment avinash-capstone-app=779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7}
 
 workflows:
   default:
