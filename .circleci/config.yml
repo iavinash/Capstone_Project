@@ -1,41 +1,153 @@
 # Python CircleCI 2.0 configuration file
 #
 # Check https://circleci.com/docs/2.0/language-python/ for more details
-version: 2
+version: 2.1
 jobs:
-  build:
+  build_app:
     docker:
-      # Use the same Docker base as the project
-      - image: python:3.7.3-stretch
+      - image: cimg/python:3.10.12
     working_directory: ~/repo
     steps:
       - checkout
-
       # Download and cache dependencies
       - restore_cache:
           keys:
             - v1-dependencies-{{ checksum "requirements.txt" }}
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
-
       - run:
           name: install dependencies
           command: |
-            python3 -m venv venv
-            . venv/bin/activate
+            ls -la
+            whoami
+            pwd
+            make setup
+            source ~/.capstone/bin/activate
             make install
-            # Install hadolint
-            wget -O /bin/hadolint https://github.com/hadolint/hadolint/releases/download/v1.16.3/hadolint-Linux-x86_64 &&\
-            chmod +x /bin/hadolint
-
       - save_cache:
           paths:
-            - ./venv
+            - ~/.capstone
           key: v1-dependencies-{{ checksum "requirements.txt" }}
-
       # run lint!
       - run:
           name: run lint
           command: |
-            . venv/bin/activate
+            source ~/.capstone/bin/activate
             make lint
+      # Run test
+      - run:
+          name: run test
+          command: |
+            source ~/.capstone/bin/activate
+            make test
+
+  build_and_push_docker_image_to_ecr:
+    docker:
+      - image: cimg/python:3.10.12
+    working_directory: ~/repo
+    steps:
+      - checkout
+      # Install AWS CLI for pushing the image to ECR
+      - run:
+          name: Install AWS CLI v2
+          command: |
+            sudo apt-get update && sudo apt-get install -yy less
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+
+      # Setup remote Docker environment
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      # Build Docker Image
+      - run:
+          name: Build Docker Image
+          command: |
+            docker build -t avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7} .
+
+      # List Built Docker Image
+      - run:
+          name: Build Docker Image
+          command: |
+            docker image ls
+
+      # Authenticate Docker with AWS ECR
+      - run:
+          name: Authenticate with ECR
+          command: |
+            aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 779081108163.dkr.ecr.us-east-2.amazonaws.com
+
+      # Tag the Docker image for ECR
+      - run:
+          name: Tag Docker Image for ECR
+          command: |
+            docker tag avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
+            docker tag avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:latest
+
+      # Push the Docker image to ECR
+      - run:
+          name: Push Docker Image to ECR
+          command: |
+            docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
+            docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:latest
+
+  deploy_to_eks_cluster:
+    docker:
+      - image: cimg/python:3.10.12
+    working_directory: ~/repo
+    steps:
+      - checkout
+      # Install AWS CLI
+      - run:
+          name: Install AWS CLI v2
+          command: |
+            sudo apt-get update && sudo apt-get install -yy less
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+      # Install Ansible
+      - run:
+          name: Install Ansible
+          command: |
+            pip install ansible
+
+      # Configure EKS Cluster
+      - run:
+          name: Configure EKS Cluster
+          command: ansible-playbook -vv ansible/configure_eks_cluster.yaml
+
+      # Deploy to EKS Cluster
+      - run:
+          name: Deploy ECR image to EKS Cluster
+          command: ansible-playbook -vv ansible/deploy_image_to_cluster.yaml
+
+      # Authenticate Docker with AWS ECR
+      - run:
+          name: Authenticate with ECR
+          command: |
+            aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 779081108163.dkr.ecr.us-east-2.amazonaws.com
+
+      # Connect Kubectl to EKS cluster
+      - run:
+          name: Connect to EKS cluster
+          command: |
+            aws eks update-kubeconfig --region ${AWS_DEFAULT_REGION} --name avi-capstone-cluster
+
+      # Deploy latest App
+      - run:
+          name: Deploy Latest App Image
+          command: |
+            sleep 5
+            kubectl set image -n kush-app-ns deployments/avi-capstone-deployment avicapstone-app=779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash_capstone:${CIRCLE_WORKFLOW_ID:0:7}
+
+workflows:
+  default:
+    jobs:
+      - build_app
+      - build_and_push_docker_image_to_ecr:
+          requires:
+            - build_app
+      - deploy_to_eks_cluster:
+          requires:
+            - build_and_push_docker_image_to_ecr
