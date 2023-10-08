@@ -6,14 +6,14 @@
 # Step 1:
 # Create dockerpath
 # dockerpath=<your docker ID/path>
-dockerpath=iavinash/avinash_capstone
+dockerpath=iavinash/avinash-capstone
 
 # Step 2:  
 # Authenticate & tag
 echo "Docker ID and Image: $dockerpath"
 
 docker login -u iavinash -p $DOCKERHUB_PASS
-docker tag avinash_capstone $dockerpath:latest
+docker tag avinash-capstone $dockerpath:latest
 
 # Step 3:
 # Push image to a docker repository
