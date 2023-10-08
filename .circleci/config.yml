@@ -82,8 +82,8 @@ jobs:
       - run:
           name: Tag Docker Image for ECR
           command: |
-            docker tag avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7}
-            docker tag avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash-capstone:latest
+            docker tag avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7}
+            docker tag avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7} 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash-capstone:latest
 
       # Push the Docker image to ECR
       - run:
@@ -139,7 +139,7 @@ jobs:
           name: Deploy Latest App Image
           command: |
             sleep 5
-            kubectl set image -n avinash-capstone-ns deployments/avi-capstone-deployment avinash-capstone-app=779081108163.dkr.ecr.us-east-2.amazonaws.com/avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7}
+            kubectl set image -n avinash-capstone-ns deployments/avi-capstone-deployment avinash-capstone-app=779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7}
 
 workflows:
   default:
