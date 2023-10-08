@@ -1,0 +1,71 @@
+---
+- name: Configure EKS Cluster
+  hosts: localhost
+  gather_facts: false
+  become: yes
+
+  tasks:
+    - name: Fetch AWS CLI environment variables
+      set_fact:
+        aws_region: "{{ lookup('env', 'AWS_DEFAULT_REGION') }}"
+        aws_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+        aws_sec_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+      when: lookup('env', 'AWS_DEFAULT_REGION') is defined
+
+    - name: Configure AWS CLI
+      shell: |
+        aws configure set aws_access_key_id {{ AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key {{ AWS_SECRET_ACCESS_KEY }}
+        aws configure set default.region {{ AWS_DEFAULT_REGION }} 
+
+    - name: Install eksctl
+      shell: |
+        curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz"
+        tar -xzf "eksctl_Linux_amd64.tar.gz" -C /tmp 
+        rm "eksctl_Linux_amd64.tar.gz"
+        sudo mv /tmp/eksctl /usr/local/bin
+
+    - name: Install kubectl
+      shell: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    
+    - name: Check eksctl version
+      shell: |
+        eksctl version
+
+    - name: Check kubectl version
+      shell: |
+        kubectl version --client=true
+
+    - name: Check if cluster already exists
+      shell: |
+        eksctl get cluster --name avi-capstone-cluster --region {{ AWS_DEFAULT_REGION }}
+      register: cluster_info
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Fail the script if it doesn't exists
+      fail: 
+        msg: "EKS cluster named 'avi-capstone-cluster' doesn't exists. Please create it and then run the script"
+      when: cluster_info.rc != 0
+
+    - name: Configure kubectl to EKS cluster
+      shell: |
+        aws eks update-kubeconfig --region {{ AWS_DEFAULT_REGION }} --name avi-capstone-cluster
+
+    - name: Check Kubectl configuration
+      shell: |
+        kubectl get svc
+
+    - name: Check if namespace already exists
+      shell: |
+        kubectl get namespace avinash-capstone-ns
+      register: namespace_info
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Create Namespace
+      shell: |
+        kubectl create namespace avinash-capstone-ns
+      when: namespace_info.rc != 0
