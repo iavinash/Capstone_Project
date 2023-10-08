@@ -91,6 +91,16 @@ jobs:
           command: |
             docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7}
             docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash-capstone:latest
+      - run:
+          name: Push Docker Image to ECR (Retry)
+          command: |
+            retry_count=0
+            while [ $retry_count -lt 3 ]; do
+              docker push 779081108163.dkr.ecr.us-east-2.amazonaws.com/avi-capstone-cluster/avinash-capstone:${CIRCLE_WORKFLOW_ID:0:7} && break
+              ((retry_count++))
+                sleep 10
+            done
+
 
   Deploy_To_EKS_Cluster:
     docker:
