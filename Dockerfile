@@ -7,7 +7,6 @@ WORKDIR /app
 ## Step 2:
 # Copy source code to working directory
 COPY . app.py requirements.txt testflask.py /app/
-COPY static /app/static/
 COPY templates /app/templates/
 
 
